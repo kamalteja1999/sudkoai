@@ -5,6 +5,7 @@ import { NumberPad } from './components/NumberPad';
 import { Hints } from './components/Hints';
 import { generateSudoku, isValid, getPossibleNumbers } from './utils/sudoku';
 import { Trophy, Moon, Sun } from 'lucide-react';
+import { ConfirmDialog } from './components/ConfirmDialog';
 
 function App() {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
@@ -15,6 +16,9 @@ function App() {
   const [history, setHistory] = useState<number[][][]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [possibilities, setPossibilities] = useState<number[]>([]);
+  const [showHints, setShowHints] = useState(false);
+  const [hintsRemaining, setHintsRemaining] = useState(12);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [darkMode, setDarkMode] = useState(() => 
     window.matchMedia('(prefers-color-scheme: dark)').matches
   );
@@ -35,6 +39,8 @@ function App() {
     setHistory([]);
     setIsComplete(false);
     setPossibilities([]);
+    setShowHints(false);
+    setHintsRemaining(difficulty === 'easy' ? 12 : difficulty === 'medium' ? 7 : 5);
   }, [difficulty]);
 
   useEffect(() => {
@@ -42,17 +48,18 @@ function App() {
   }, [startNewGame]);
 
   useEffect(() => {
-    if (selectedCell) {
+    if (selectedCell && showHints && hintsRemaining > 0) {
       const { row, col } = selectedCell;
       setPossibilities(getPossibleNumbers(board, row, col));
     } else {
       setPossibilities([]);
     }
-  }, [selectedCell, board]);
+  }, [selectedCell, board, showHints, hintsRemaining]);
 
   const handleCellClick = (row: number, col: number) => {
     if (initialBoard[row][col] === 0) {
       setSelectedCell({ row, col });
+      setShowHints(false);
     }
   };
 
@@ -119,6 +126,13 @@ function App() {
     setErrors(newErrors);
   };
 
+  const handleHintClick = () => {
+    if (hintsRemaining > 0 && selectedCell) {
+      setShowHints(true);
+      setHintsRemaining(prev => prev - 1);
+    }
+  };
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${
       darkMode 
@@ -126,10 +140,10 @@ function App() {
         : 'bg-gradient-to-br from-blue-50 to-indigo-100'
     }`}>
       <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
-      <div className="relative py-12 px-4">
-        <div className="w-[70vw] mx-auto flex flex-col items-center gap-8">
-          <div className="flex items-center justify-between w-full max-w-[min(70vh,800px)]">
-            <h1 className={`text-5xl font-bold transition-colors duration-300 ${
+      <div className="relative py-6 px-4 max-w-[min(95vw,800px)] mx-auto">
+        <div className="flex flex-col items-center gap-6">
+          <div className="flex items-center justify-between w-full">
+            <h1 className={`text-3xl md:text-5xl font-bold transition-colors duration-300 ${
               darkMode ? 'text-white' : 'text-gray-800'
             }`}>Sudoku</h1>
             <button
@@ -152,14 +166,16 @@ function App() {
           )}
           
           <Controls
-            onNewGame={startNewGame}
+            onNewGame={() => setShowConfirmDialog(true)}
             onUndo={handleUndo}
             onDifficultyChange={setDifficulty}
             currentDifficulty={difficulty}
             darkMode={darkMode}
+            onHintClick={handleHintClick}
+            hintsRemaining={hintsRemaining}
           />
           
-          <div className="w-full max-w-[min(70vh,800px)] animate-fade-in">
+          <div className="w-full">
             <Board
               board={board}
               initialBoard={initialBoard}
@@ -170,13 +186,15 @@ function App() {
             />
           </div>
           
-          <Hints 
-            possibilities={possibilities}
-            onHintSelect={handleNumberSelect}
-            darkMode={darkMode}
-          />
+          {showHints && (
+            <Hints 
+              possibilities={possibilities}
+              onHintSelect={handleNumberSelect}
+              darkMode={darkMode}
+            />
+          )}
           
-          <div className="w-full max-w-[min(70vh,800px)]">
+          <div className="w-full">
             <NumberPad
               onNumberSelect={handleNumberSelect}
               onClear={handleClear}
@@ -185,6 +203,16 @@ function App() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={showConfirmDialog}
+        onClose={() => setShowConfirmDialog(false)}
+        onConfirm={() => {
+          startNewGame();
+          setShowConfirmDialog(false);
+        }}
+        darkMode={darkMode}
+      />
     </div>
   );
 }
